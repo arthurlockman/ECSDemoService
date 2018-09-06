@@ -1,0 +1,21 @@
+Description: >
+  This creates an ECR repository to store docker images in for ECS.
+
+Parameters:
+
+  RepositoryName:
+    Description: The repository name
+    Type: String
+
+Resources:
+
+  Repository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref RepositoryName
+
+Outputs:
+
+  RepositoryUrl:
+    Description: The HTTP URL for the container repository
+    Value: !Join [ ".", [ !Ref "AWS::AccountId", "dkr.ecr", !Ref "AWS::Region", !Join [ "/", [ "amazonaws.com", !Ref RepositoryName ] ] ] ]
