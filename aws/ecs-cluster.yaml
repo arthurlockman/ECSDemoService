@@ -110,6 +110,58 @@ Resources:
         - ScheduledActions
         WaitOnResourceSignals: true
 
+  ECSScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref ECSAutoScalingGroup
+      PolicyType: StepScaling
+      MetricAggregationType: Average
+      EstimatedInstanceWarmup: 60
+      StepAdjustments:
+        -
+          MetricIntervalLowerBound: 0
+          ScalingAdjustment: 1
+        -
+          MetricIntervalUpperBound: 0
+          ScalingAdjustment: -1
+
+  ECSScaleUpAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${EnvironmentName}-scale-up-alarm
+      AlarmDescription: Scale the ECS cluster up when the CPU usage is greater than 50% for 5 minutes
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref ECSCluster
+      EvaluationPeriods: 1
+      Period: 300
+      Statistic: Average
+      Threshold: 50
+      AlarmActions:
+        - !Ref ECSScalingPolicy
+
+  ECSScaleDownAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${EnvironmentName}-scale-down-alarm
+      AlarmDescription: Scale the ECS cluster down when the CPU usage is less than 50% for 20 minutes
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+      - Name: ClusterName
+        Value: !Ref ECSCluster
+      EvaluationPeriods: 4
+      Period: 300
+      Statistic: Average
+      Threshold: 50
+      AlarmActions:
+      - !Ref ECSScalingPolicy
+
   ECSLaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
@@ -319,7 +371,7 @@ Resources:
             - application-autoscaling.amazonaws.com
       Path: /
       Policies:
-      - PolicyName: ecs-service-autoscaling
+      - PolicyName: ecs-cluster-autoscaling
         PolicyDocument:
           Statement:
             Effect: Allow

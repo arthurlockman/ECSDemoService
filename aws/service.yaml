@@ -101,6 +101,114 @@ Resources:
       - TargetGroupArn: !Ref TargetGroup
         Type: forward
 
+  ServiceAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Action:
+          - 'sts:AssumeRole'
+          Effect: Allow
+          Principal:
+            Service:
+            - application-autoscaling.amazonaws.com
+      Path: /
+      Policies:
+      - PolicyName: ecs-service-autoscaling
+        PolicyDocument:
+          Statement:
+            Effect: Allow
+            Action:
+            - ecs:UpdateService
+            - ecs:DescribeServices
+            - application-autoscaling:*
+            - cloudwatch:DescribeAlarms
+            - cloudwatch:GetMetricStatistics
+            Resource: "*"
+
+  ServiceAutoScalingHighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Triggers when the service CPU usage is above 80% for 5 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 80
+      AlarmActions:
+      - !Ref ServiceAutoScalingPolicy
+      Dimensions:
+      - Name: ServiceName
+        Value:
+          Fn::GetAtt:
+          - Service
+          - Name
+      - Name: ClusterName
+        Value: !Ref Cluster
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+
+  ServiceAutoScalingLowCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Triggers when service CPU usage is below 50% for 10 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 50
+      AlarmActions:
+      - !Ref ServiceAutoScalingPolicy
+      Dimensions:
+      - Name: ServiceName
+        Value:
+          Fn::GetAtt:
+          - Service
+          - Name
+      - Name: ClusterName
+        Value: !Ref Cluster
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+
+  ServiceAutoScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 20
+      MinCapacity: 1
+      ResourceId:
+        Fn::Join:
+        - "/"
+        - - service
+          - !Ref Cluster
+          - Fn::GetAtt:
+            - Service
+            - Name
+      RoleARN:
+        Fn::GetAtt:
+        - ServiceAutoScalingRole
+        - Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  ServiceAutoScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ECSDemoServiceScalingPolicy
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ServiceAutoScalingTarget
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+        - MetricIntervalLowerBound: 0
+          ScalingAdjustment: 2
+        - MetricIntervalUpperBound: 0
+          ScalingAdjustment: -1
+
   # This IAM Role grants the service access to register/unregister with the
   # Application Load Balancer (ALB). It is based on the default documented here:
   # http://docs.aws.amazon.com/AmazonECS/latest/developerguide/service_IAM_role.html
