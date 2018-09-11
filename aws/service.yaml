@@ -52,6 +52,10 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: ecs-demo-service
+      TaskRoleArn:
+        Fn::GetAtt:
+        - TaskRole
+        - Arn
       ContainerDefinitions:
       - Name: ecs-demo-service
         Essential: true
@@ -246,3 +250,18 @@ Resources:
                             "Resource": "*"
                           }]
           }
+
+  # This IAM role grants the task access to various AWS services.
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ecs-service-task-${AWS::StackName}
+      Path: /
+      AssumeRolePolicyDocument: |
+        {
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": { "Service": [ "ecs-tasks.amazonaws.com" ]},
+                "Action": [ "sts:AssumeRole" ]
+            }]
+        }
