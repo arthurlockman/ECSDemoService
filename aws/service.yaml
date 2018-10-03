@@ -173,7 +173,7 @@ Resources:
           - Name
       - Name: ClusterName
         Value: !Ref Cluster
-      ComparisonOperator: GreaterThanOrEqualToThreshold
+      ComparisonOperator: LessThanOrEqualToThreshold
 
   ServiceAutoScalingTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
